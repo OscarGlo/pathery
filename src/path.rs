@@ -84,7 +84,7 @@ fn shortest_path(map: &Map, start: Option<Point>, target: Tile) -> Option<Path> 
         searched.push(point);
 
         // Loop through all neighbors and add valid and not visited tiles
-        'nei: for d in vec![(1, 0), (-1, 0), (0, 1), (0, -1)] {
+        'nei: for d in vec![(0, -1), (1, 0), (0, 1), (-1, 0)] {
             let tmp = step(&current, map, d);
             if tmp.is_none() {
                 continue
@@ -94,6 +94,7 @@ fn shortest_path(map: &Map, start: Option<Point>, target: Tile) -> Option<Path> 
 
             let mut tile = map[node.point.1 as usize][node.point.0 as usize];
 
+            // TODO: Fix direction priorities
             if searched.contains(&node.point) ||
                 tile == Tile::Wall ||
                 to_search.iter().find(|m| m.point == node.point && m.cost <= node.cost).is_some()
@@ -118,7 +119,7 @@ fn shortest_path(map: &Map, start: Option<Point>, target: Tile) -> Option<Path> 
 
             let value = node.cost + node.heuristic;
             for i in 0..to_search.len() {
-                if to_search[i].cost + to_search[i].heuristic < value {
+                if to_search[i].cost + to_search[i].heuristic <= value {
                     to_search.insert(i, node);
                     continue 'nei;
                 }
@@ -137,7 +138,7 @@ fn get_checkpoint_id(tile: &Tile) -> u8 {
 }
 
 // TODO: Implement teleporters
-pub fn solve(map: &Map) -> Path {
+pub fn solve(map: &Map) -> Option<Path> {
     let mut checkpoints = map.iter()
         .flat_map(|r| r.iter()
             .filter(|t| matches!(t, &Tile::Checkpoint(_)))
@@ -149,10 +150,18 @@ pub fn solve(map: &Map) -> Path {
     let mut path: Vec<Point> = vec![];
     for id in checkpoints {
         let p = path.pop();
-        path.append(shortest_path(map, p, Tile::Checkpoint(id)).expect("Path blocked").as_mut());
+        let part = shortest_path(map, p, Tile::Checkpoint(id));
+        if part.is_none() {
+            return None
+        }
+        path.append(&mut part.unwrap());
     }
     let p = path.pop();
-    path.append(shortest_path(map, p, Tile::Exit).expect("Path blocked").as_mut());
+    let part = shortest_path(map, p, Tile::Exit);
+    if part.is_none() {
+        return None
+    }
+    path.append(&mut part.unwrap());
 
-    return path;
+    return Some(path);
 }
